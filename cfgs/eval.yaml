@@ -9,7 +9,7 @@ method:
 rlbench:
     task_name: "multi_18T"
     tasks: [open_drawer]
-    demo_path: /home/maxiao/repos/dataset/peract/eval
+    demo_path: /home/an.vuong/Desktop/ws/hdp/data/eval
     episode_length: 4
     cameras: [front,left_shoulder,right_shoulder,wrist]
     camera_resolution: [128, 128]
@@ -37,4 +37,4 @@ cinematic_recorder:
     camera_resolution: [1280, 720]
     fps: 30
     rotate_speed: 0.005
-    save_path: '/tmp/videos/'
+    save_path: '/home/an.vuong/Desktop/ws/hdp/eval_video'

@@ -23,7 +23,7 @@ from yarr.runners.independent_env_runner import IndependentEnvRunner
 from yarr.utils.rollout_generator import RolloutGenerator
 from yarr.utils.stat_accumulator import SimpleAccumulator
 
-from peract.agents import peract_diffusion
+from peract.agents import peract_diffusionf
 from helpers import utils
 
 
