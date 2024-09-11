@@ -292,23 +292,23 @@ class SimpleModel(nn.Module):
         horizon = horizon or self._horizon
         shape = (batch_size, horizon, self._observation_dim)
 
-        joint_emb, predicted_traj = self(cond, horizon, use_dropout=False, force_dropout=False, *args, **kwargs)
+        joint_emb, gripper_emb = self(cond, horizon, use_dropout=False, force_dropout=False, *args, **kwargs)
         return_dict = {"traj": joint_emb}
 
         if self._diffusion_var == "joint_positions":
             seq_len = shape[1]
             robot = kwargs["robot"]
             joints = joint_emb.view(-1, 7)
-            # predicted_traj = robot.forward_kinematics_batch(joints).view(
-            #     batch_size, seq_len, 7
-            # )
+            predicted_traj = robot.forward_kinematics_batch(joints).view(
+                batch_size, seq_len, 7
+            )
 
             return_dict["traj"] = predicted_traj
             return_dict["joint_positions"] = joint_emb
-
+            return_dict["gripper_poses"] = gripper_emb
         return {self._diffusion_var: return_dict}
 
-    def loss(self, x: torch.tensor, cond: dict, robot: MambaRobot = None, **kwargs) -> tuple:
+    def loss(self, x: torch.tensor, cond: dict, robot: MambaRobot = None, diffusion_var ="gripper_poses", **kwargs) -> tuple:
         x_start = x
         gt_poses = kwargs["gripper_poses"]
         conditions = kwargs
@@ -350,27 +350,44 @@ class SimpleModel(nn.Module):
 
         batch_size = x.size(0)
 
-        if self._diffusion_var != "gripper_poses":
-            loss, _ = self._loss_fn(x_start, x_recon)
-            # loss = F.mse_loss(x_start, x_recon) * self._trans_loss_scale
-            info = {"pose_loss": loss}
-        else:
-            loss, _ = self._loss_fn(x_start, x_recon)
-            loss = loss * self._joint_loss_scale
-            info = {"joint_loss": loss}
+        loss, _ = self._loss_fn(x_start, x_recon)
+        loss = loss * self._joint_loss_scale
+        info = {"joint_loss": loss}
 
-            if self._joint_pred_pose_loss:
-                assert robot is not None
-                # f_poses = robot.forward_kinematics_batch(
-                #     x_recon.contiguous().view(-1, 7)
-                # ).view(batch_size, -1, 7)
+        if self._joint_pred_pose_loss:
+            assert robot is not None
+            # f_poses = robot.forward_kinematics_batch(
+            #     x_recon.contiguous().view(-1, 7)
+            # ).view(batch_size, -1, 7)
 
-                # pose_loss = F.mse_loss(predicted_poses[..., :3], gt_poses[..., :3])
-                pose_loss, _ = self._loss_fn(predicted_poses, gt_poses)
-                pose_loss = pose_loss * self._trans_loss_scale
+            # pose_loss = F.mse_loss(predicted_poses[..., :3], gt_poses[..., :3])
+            pose_loss, _ = self._loss_fn(predicted_poses, gt_poses)
+            pose_loss = pose_loss * self._trans_loss_scale
 
-                loss += pose_loss
-                info["pose_loss"] = pose_loss
+            loss += pose_loss
+            info["pose_loss"] = pose_loss
+
+        # if diffusion_var == "gripper_poses":
+        #     loss, _ = self._loss_fn(x_start, x_recon)
+        #     # loss = F.mse_loss(x_start, x_recon) * self._trans_loss_scale
+        #     info = {"pose_loss": loss}
+        # else:
+        #     loss, _ = self._loss_fn(x_start, x_recon)
+        #     loss = loss * self._joint_loss_scale
+        #     info = {"joint_loss": loss}
+
+        #     if self._joint_pred_pose_loss:
+        #         assert robot is not None
+        #         # f_poses = robot.forward_kinematics_batch(
+        #         #     x_recon.contiguous().view(-1, 7)
+        #         # ).view(batch_size, -1, 7)
+
+        #         # pose_loss = F.mse_loss(predicted_poses[..., :3], gt_poses[..., :3])
+        #         pose_loss, _ = self._loss_fn(predicted_poses, gt_poses)
+        #         pose_loss = pose_loss * self._trans_loss_scale
+
+        #         loss += pose_loss
+        #         info["pose_loss"] = pose_loss
 
 
         return loss, info

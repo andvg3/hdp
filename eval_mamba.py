@@ -23,7 +23,7 @@ from yarr.runners.independent_env_runner import IndependentEnvRunner
 from yarr.utils.rollout_generator import RolloutGenerator
 from yarr.utils.stat_accumulator import SimpleAccumulator
 
-from peract.agents import peract_diffusion
+from peract.agents import peract_mamba
 from helpers import utils
 
 
@@ -99,7 +99,7 @@ def eval_seed(
     train_cfg.method.update(eval_cfg.method)
 
     if train_cfg.method.name == "HDP":
-        method_path = "cfgs/method/rk_diffuser.yaml"
+        method_path = "cfgs/method/mamba.yaml"
         method_path = os.path.join(os.getcwd().split("output")[0], method_path)
         with open(method_path, "r") as f:
             method_cfg = yaml.safe_load(f)
@@ -111,7 +111,7 @@ def eval_seed(
             }
         )
         train_cfg.method.update(method_cfg)
-        agent = peract_diffusion.launch_utils.create_agent(train_cfg)
+        agent = peract_mamba.launch_utils.create_agent(train_cfg)
 
     else:
         raise ValueError("Method %s does not exists." % train_cfg.method.name)

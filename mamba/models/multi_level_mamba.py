@@ -63,11 +63,24 @@ class MultiLevelMamba(nn.Module):
     ) -> dict:
         """This function wrap the conditional sample function of each diffusion models."""
         samples = {"multi": {}}
-        for k, v in self._models.items():
-            cond, kwargs = self._form_diffusion_batch(k, False, train=False, **kwargs)
-            del kwargs["x"]
-            sample = v.conditional_sample(cond, horizon, *args, **kwargs)
-            samples.update(sample)
+        
+        k = "joint_positions"
+        v = self._models[k]
+        cond, kwargs = self._form_diffusion_batch(k, False, train=False, **kwargs)
+        del kwargs["x"]
+        sample = v.conditional_sample(cond, horizon, *args, **kwargs)
+        sample_gripper_poses = {"gripper_poses": {"traj": sample[k]["gripper_poses"]}}
+        del sample[k]["gripper_poses"]
+        samples.update(sample)
+        samples.update(sample_gripper_poses)
+        # for k, v in self._models.items():
+        #     print(k)
+        #     cond, kwargs = self._form_diffusion_batch(k, False, train=False, **kwargs)
+        #     del kwargs["x"]
+        #     sample = v.conditional_sample(cond, horizon, *args, **kwargs)
+        #     samples.update(sample)
+        
+        # exit()
 
         if self._mamba_optim:
             robot = kwargs["robot"]
@@ -131,13 +144,21 @@ class MultiLevelMamba(nn.Module):
         """
         losses = 0
         infos = {}
-        for k, v in self._models.items():
-            cond, kwargs = self._form_diffusion_batch(
-                k, self._pose_augment, train=True, **kwargs
-            )
-            loss, info = v.loss(cond=cond, **kwargs)
-            losses += loss
-            infos.update(info)
+        k = "joint_positions"
+        v = self._models[k]
+        cond, kwargs = self._form_diffusion_batch(k, False, train=False, **kwargs)
+        loss, info = v.loss(cond=cond, **kwargs)
+        losses += loss
+        infos.update(info)
+
+        # for k, v in self._models.items():
+        #     cond, kwargs = self._form_diffusion_batch(
+        #         k, self._pose_augment, train=True, **kwargs
+        #     )
+        #     kwargs["diffusion_var"] = k
+        #     loss, info = v.loss(cond=cond, **kwargs)
+        #     losses += loss
+        #     infos.update(info)
 
         return losses, infos
 

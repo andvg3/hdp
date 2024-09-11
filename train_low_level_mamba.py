@@ -57,7 +57,7 @@ def _create_agent_fn(
             sim=sim,
         )
     else:
-        mamba = hydra.utils.instantiate(
+        mamba_model = hydra.utils.instantiate(
             cfgs,
             mamba_var=mamba_var,
         )
