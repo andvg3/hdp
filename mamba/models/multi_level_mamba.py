@@ -73,14 +73,6 @@ class MultiLevelMamba(nn.Module):
         del sample[k]["gripper_poses"]
         samples.update(sample)
         samples.update(sample_gripper_poses)
-        # for k, v in self._models.items():
-        #     print(k)
-        #     cond, kwargs = self._form_diffusion_batch(k, False, train=False, **kwargs)
-        #     del kwargs["x"]
-        #     sample = v.conditional_sample(cond, horizon, *args, **kwargs)
-        #     samples.update(sample)
-        
-        # exit()
 
         if self._mamba_optim:
             robot = kwargs["robot"]
@@ -150,15 +142,6 @@ class MultiLevelMamba(nn.Module):
         loss, info = v.loss(cond=cond, **kwargs)
         losses += loss
         infos.update(info)
-
-        # for k, v in self._models.items():
-        #     cond, kwargs = self._form_diffusion_batch(
-        #         k, self._pose_augment, train=True, **kwargs
-        #     )
-        #     kwargs["diffusion_var"] = k
-        #     loss, info = v.loss(cond=cond, **kwargs)
-        #     losses += loss
-        #     infos.update(info)
 
         return losses, infos
 

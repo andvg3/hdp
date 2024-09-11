@@ -34,8 +34,8 @@ mamba_var: multi
 action_mode: mamba
 online_eval_start: 20000
 
-mamba_optim: true
-mamba_optim_steps: 200
+mamba_optim: false
+mamba_optim_steps: 0
 mamba_lr: 10
 eval_only: false
 

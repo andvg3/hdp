@@ -308,7 +308,7 @@ class SimpleModel(nn.Module):
             return_dict["gripper_poses"] = gripper_emb
         return {self._diffusion_var: return_dict}
 
-    def loss(self, x: torch.tensor, cond: dict, robot: MambaRobot = None, diffusion_var ="gripper_poses", **kwargs) -> tuple:
+    def loss(self, x: torch.tensor, cond: dict, robot: MambaRobot = None, **kwargs) -> tuple:
         x_start = x
         gt_poses = kwargs["gripper_poses"]
         conditions = kwargs
@@ -366,28 +366,5 @@ class SimpleModel(nn.Module):
 
             loss += pose_loss
             info["pose_loss"] = pose_loss
-
-        # if diffusion_var == "gripper_poses":
-        #     loss, _ = self._loss_fn(x_start, x_recon)
-        #     # loss = F.mse_loss(x_start, x_recon) * self._trans_loss_scale
-        #     info = {"pose_loss": loss}
-        # else:
-        #     loss, _ = self._loss_fn(x_start, x_recon)
-        #     loss = loss * self._joint_loss_scale
-        #     info = {"joint_loss": loss}
-
-        #     if self._joint_pred_pose_loss:
-        #         assert robot is not None
-        #         # f_poses = robot.forward_kinematics_batch(
-        #         #     x_recon.contiguous().view(-1, 7)
-        #         # ).view(batch_size, -1, 7)
-
-        #         # pose_loss = F.mse_loss(predicted_poses[..., :3], gt_poses[..., :3])
-        #         pose_loss, _ = self._loss_fn(predicted_poses, gt_poses)
-        #         pose_loss = pose_loss * self._trans_loss_scale
-
-        #         loss += pose_loss
-        #         info["pose_loss"] = pose_loss
-
 
         return loss, info

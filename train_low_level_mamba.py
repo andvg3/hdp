@@ -36,10 +36,6 @@ def _create_agent_fn(
 
     assert mamba_var in VALID_MAMBA_VARS
     if mamba_var == "multi":
-        mamba_pose = hydra.utils.instantiate(
-            cfgs,
-            mamba_var="gripper_poses",
-        )
         mamba_joints = hydra.utils.instantiate(
             cfgs,
             mamba_var="joint_positions",
@@ -47,7 +43,6 @@ def _create_agent_fn(
 
         mamba_model = MultiLevelMamba(
             {
-                "gripper_poses": mamba_pose,
                 "joint_positions": mamba_joints,
             },
             mamba_optim=mamba_optim,
