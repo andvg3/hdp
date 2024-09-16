@@ -108,30 +108,45 @@ class SimpleModel(nn.Module):
         act_fn = nn.Mish()
 
         # Setup mamba layers for predict joint and angle
-        self.joint_embedding_layer = nn.Sequential(
-            nn.Linear(dim, self._horizon * 7),
+        self.joint_mamba_layer = nn.Sequential(
+            Mamba(
+                # This module uses roughly 3 * expand * d_model^2 parameters
+                d_model=dim, # Model dimension d_model
+                d_state=128,  # SSM state expansion factor, typically 64 or 128
+                d_conv=8,    # Local convolution width
+                expand=2,    # Block expansion factor
+            ),
+            Mamba(
+                # This module uses roughly 3 * expand * d_model^2 parameters
+                d_model=dim, # Model dimension d_model
+                d_state=64,  # SSM state expansion factor, typically 64 or 128
+                d_conv=8,    # Local convolution width
+                expand=2,    # Block expansion factor
+            ),
         )
 
-        self.joint_mamba_layer = nn.Sequential(
+        self.joint_embedding_layer = nn.Sequential(
+            nn.Linear(dim, dim // 2),
+            nn.Mish(),
+            nn.Linear(dim // 2, 7),
+        )
+
+        self.pose_mamba_layer = nn.Sequential(
+            nn.Linear(7, 7),
             Mamba(
                 # This module uses roughly 3 * expand * d_model^2 parameters
                 d_model=7, # Model dimension d_model
                 d_state=64,  # SSM state expansion factor, typically 64 or 128
-                d_conv=4,    # Local convolution width
+                d_conv=8,    # Local convolution width
                 expand=2,    # Block expansion factor
             ),
-        )
-
-        self.pose_mamba_layer = nn.Sequential(
-            nn.Linear(7*2, 7*2),
             Mamba(
                 # This module uses roughly 3 * expand * d_model^2 parameters
-                d_model=7*2, # Model dimension d_model
+                d_model=7, # Model dimension d_model
                 d_state=64,  # SSM state expansion factor, typically 64 or 128
-                d_conv=4,    # Local convolution width
+                d_conv=8,    # Local convolution width
                 expand=2,    # Block expansion factor
-            ),
-            nn.Linear(7*2, 7)
+            )
         )
 
         for cond_name in self._conditions:
@@ -257,14 +272,14 @@ class SimpleModel(nn.Module):
                 cond_emb = mask * cond_emb
             if force_dropout and allow_dropout:
                 cond_emb = 0 * cond_emb
-        
-        joint_emb = self.joint_embedding_layer(cond_emb)
-        joint_emb = joint_emb.reshape(cond_emb.size(0), self._horizon, -1)
 
-        joint_feats = self.joint_mamba_layer(joint_emb)
+        cond_emb = cond_emb.unsqueeze(1).repeat(1, self._horizon, 1)
+        joint_feats = self.joint_mamba_layer(cond_emb)
+        joint_feats = joint_feats.reshape(cond_emb.size(0), self._horizon, -1)
+        joint_feats = self.joint_embedding_layer(joint_feats)
+
         # joint_feats = joint_feats.view(cond_emb.size(0), self._horizon, -1)
-        pose_emb = torch.cat([joint_feats, joint_emb], dim=-1)
-        pose_emb = self.pose_mamba_layer(pose_emb)
+        pose_emb = self.pose_mamba_layer(joint_feats)
         
         # joint_feats = joint_feats.view(cond_emb.size(0), self._horizon, -1)
         # pose_emb = pose_emb.view(cond_emb.size(0), self._horizon, -1)

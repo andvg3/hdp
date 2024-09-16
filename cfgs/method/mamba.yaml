@@ -15,7 +15,7 @@ loss_discount: 1
 condition_guidance_w: 1.2
 reverse_train: false
 conditions: [start, end, proprios, rank, pcds] # pcds
-hard_conditions: [proprios, pcds, start, end]
+hard_conditions: [proprios, pcds]
 noise_init_method: normal
 loss_fn: state_l2
 coverage_weight: 1.0
