@@ -104,35 +104,8 @@ class SimpleModel(nn.Module):
         }
 
         dim = hidden_dim
-        embed_dim = dim
+        embed_dim = 0
         act_fn = nn.Mish()
-
-        # Setup mamba layers for predict joint and angle
-        self.joint_embedding_layer = nn.Sequential(
-            nn.Linear(dim, self._horizon * 7),
-        )
-
-        self.joint_mamba_layer = nn.Sequential(
-            Mamba(
-                # This module uses roughly 3 * expand * d_model^2 parameters
-                d_model=7, # Model dimension d_model
-                d_state=64,  # SSM state expansion factor, typically 64 or 128
-                d_conv=4,    # Local convolution width
-                expand=2,    # Block expansion factor
-            ),
-        )
-
-        self.pose_mamba_layer = nn.Sequential(
-            nn.Linear(7*2, 7*2),
-            Mamba(
-                # This module uses roughly 3 * expand * d_model^2 parameters
-                d_model=7*2, # Model dimension d_model
-                d_state=64,  # SSM state expansion factor, typically 64 or 128
-                d_conv=4,    # Local convolution width
-                expand=2,    # Block expansion factor
-            ),
-            nn.Linear(7*2, 7)
-        )
 
         for cond_name in self._conditions:
             if cond_name == "pcds":
@@ -165,6 +138,42 @@ class SimpleModel(nn.Module):
                 )
         self._cond_fns = nn.ModuleDict(condition_fns)
         embed_dim += len(self._conditions) * dim
+
+        # Setup mamba layers for predict joint and angle
+        self.joint_embedding_layer = nn.Sequential(
+            nn.Linear(embed_dim, self._horizon * 7),
+        )
+
+        self.joint_mamba_layer = nn.Sequential(
+            Mamba(
+                # This module uses roughly 3 * expand * d_model^2 parameters
+                d_model=7, # Model dimension d_model
+                d_state=64,  # SSM state expansion factor, typically 64 or 128
+                d_conv=1,    # Local convolution width
+                expand=2,    # Block expansion factor
+            ),
+        )
+
+        self.pose_mamba_layer = nn.Sequential(
+            nn.Linear(7*2, 7*2),
+            Mamba(
+                # This module uses roughly 3 * expand * d_model^2 parameters
+                d_model=7*2, # Model dimension d_model
+                d_state=64,  # SSM state expansion factor, typically 64 or 128
+                d_conv=1,    # Local convolution width
+                expand=2,    # Block expansion factor
+            ),
+            nn.LayerNorm(7*2),
+            nn.Linear(7*2, 7),
+            Mamba(
+                # This module uses roughly 3 * expand * d_model^2 parameters
+                d_model=7, # Model dimension d_model
+                d_state=64,  # SSM state expansion factor, typically 64 or 128
+                d_conv=1,    # Local convolution width
+                expand=2,    # Block expansion factor
+            ),
+            nn.LayerNorm(7)
+        )
 
         # Initialize for loss function
         loss_weights = self.get_loss_weights(loss_discount)
@@ -241,6 +250,7 @@ class SimpleModel(nn.Module):
     ):
         cond = self.proc_cond(cond)
 
+        final_emb = []
         # Ensure that the input requires gradients
         for cond_name in sorted(self._conditions):
             cond_var = kwargs[cond_name]
@@ -257,8 +267,11 @@ class SimpleModel(nn.Module):
                 cond_emb = mask * cond_emb
             if force_dropout and allow_dropout:
                 cond_emb = 0 * cond_emb
+            final_emb.append(cond_emb)
         
-        joint_emb = self.joint_embedding_layer(cond_emb)
+        final_emb = torch.cat(final_emb, dim=-1)            
+        
+        joint_emb = self.joint_embedding_layer(final_emb)
         joint_emb = joint_emb.reshape(cond_emb.size(0), self._horizon, -1)
 
         joint_feats = self.joint_mamba_layer(joint_emb)
@@ -269,7 +282,7 @@ class SimpleModel(nn.Module):
         # joint_feats = joint_feats.view(cond_emb.size(0), self._horizon, -1)
         # pose_emb = pose_emb.view(cond_emb.size(0), self._horizon, -1)
 
-        return joint_feats, pose_emb
+        return joint_feats, pose_emb 
 
 
     def conditional_sample(
