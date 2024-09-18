@@ -272,13 +272,21 @@ class SimpleModel(nn.Module):
         final_emb = torch.cat(final_emb, dim=-1)            
         
         joint_emb = self.joint_embedding_layer(final_emb)
-        joint_emb = joint_emb.reshape(final_emb.size(0), self._horizon, -1)
+        joint_emb = joint_emb.reshape(cond_emb.size(0), self._horizon, -1)
 
-        joint_feats = self.joint_mamba_layer(joint_emb)
-        pose_emb = torch.cat([joint_feats, joint_emb], dim=-1)
-        pose_emb = self.pose_mamba_layer(pose_emb)
+        cond_emb = cond_emb.unsqueeze(1).repeat(1, self._horizon, 1)
+        joint_feats = self.joint_mamba_layer(cond_emb)
+        joint_feats = joint_feats.reshape(cond_emb.size(0), self._horizon, -1)
+        joint_feats = self.joint_embedding_layer(joint_feats)
+
+        # joint_feats = joint_feats.view(cond_emb.size(0), self._horizon, -1)
+        pose_emb = self.pose_mamba_layer(joint_feats)
         
-        return joint_feats, pose_emb
+        # joint_feats = joint_feats.view(cond_emb.size(0), self._horizon, -1)
+        # pose_emb = pose_emb.view(cond_emb.size(0), self._horizon, -1)
+
+        return joint_feats, pose_emb 
+
 
     def conditional_sample(
         self, cond: dict, horizon: int = None, *args, **kwargs
