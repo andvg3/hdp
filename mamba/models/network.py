@@ -141,9 +141,7 @@ class SimpleModel(nn.Module):
 
         # Setup mamba layers for predict joint and angle
         self.joint_embedding_layer = nn.Sequential(
-            nn.Linear(embed_dim, embed_dim // 2),
-            nn.Mish(),
-            nn.Linear(embed_dim // 2, self._horizon * 7),
+            nn.Linear(embed_dim, self._horizon * 7),
         )
 
         self.joint_mamba_layer = nn.Sequential(
@@ -165,6 +163,7 @@ class SimpleModel(nn.Module):
                 d_conv=1,    # Local convolution width
                 expand=2,    # Block expansion factor
             ),
+            nn.LayerNorm(7*2),
             nn.Linear(7*2, 7),
             Mamba(
                 # This module uses roughly 3 * expand * d_model^2 parameters
@@ -173,6 +172,7 @@ class SimpleModel(nn.Module):
                 d_conv=1,    # Local convolution width
                 expand=2,    # Block expansion factor
             ),
+            nn.LayerNorm(7)
         )
 
         # Initialize for loss function
@@ -272,21 +272,13 @@ class SimpleModel(nn.Module):
         final_emb = torch.cat(final_emb, dim=-1)            
         
         joint_emb = self.joint_embedding_layer(final_emb)
-        joint_emb = joint_emb.reshape(cond_emb.size(0), self._horizon, -1)
+        joint_emb = joint_emb.reshape(final_emb.size(0), self._horizon, -1)
 
-        cond_emb = cond_emb.unsqueeze(1).repeat(1, self._horizon, 1)
-        joint_feats = self.joint_mamba_layer(cond_emb)
-        joint_feats = joint_feats.reshape(cond_emb.size(0), self._horizon, -1)
-        joint_feats = self.joint_embedding_layer(joint_feats)
-
-        # joint_feats = joint_feats.view(cond_emb.size(0), self._horizon, -1)
-        pose_emb = self.pose_mamba_layer(joint_feats)
+        joint_feats = self.joint_mamba_layer(joint_emb)
+        pose_emb = torch.cat([joint_feats, joint_emb], dim=-1)
+        pose_emb = self.pose_mamba_layer(pose_emb)
         
-        # joint_feats = joint_feats.view(cond_emb.size(0), self._horizon, -1)
-        # pose_emb = pose_emb.view(cond_emb.size(0), self._horizon, -1)
-
-        return joint_feats, pose_emb 
-
+        return joint_feats, pose_emb
 
     def conditional_sample(
         self, cond: dict, horizon: int = None, *args, **kwargs
@@ -330,13 +322,8 @@ class SimpleModel(nn.Module):
         conditions = kwargs
         
         if self._reverse_train:
-            # reversed_x = torch.flip(x_noisy, dims=(1,))
             reversed_cond = {-1: cond[0], 0: cond[-1]}
-            # x_noisy = torch.cat([x_noisy, reversed_x], dim=0)
             cond = {k: torch.cat([v, reversed_cond[k]], dim=0) for k, v in cond.items()}
-
-            # reversed_noise = torch.flip(noise, dims=(1,))
-            # noise = torch.cat([noise, reversed_noise], dim=0)
 
             reversed_start = torch.flip(x_start, dims=(1,))
             x_start = torch.cat([x_start, reversed_start], dim=0)
