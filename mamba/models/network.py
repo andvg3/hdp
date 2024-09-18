@@ -141,7 +141,9 @@ class SimpleModel(nn.Module):
 
         # Setup mamba layers for predict joint and angle
         self.joint_embedding_layer = nn.Sequential(
-            nn.Linear(embed_dim, self._horizon * 7),
+            nn.Linear(embed_dim, embed_dim // 2),
+            nn.Mish(),
+            nn.Linear(embed_dim // 2, self._horizon * 7),
         )
 
         self.joint_mamba_layer = nn.Sequential(
@@ -163,7 +165,6 @@ class SimpleModel(nn.Module):
                 d_conv=1,    # Local convolution width
                 expand=2,    # Block expansion factor
             ),
-            nn.LayerNorm(7*2),
             nn.Linear(7*2, 7),
             Mamba(
                 # This module uses roughly 3 * expand * d_model^2 parameters
@@ -172,7 +173,6 @@ class SimpleModel(nn.Module):
                 d_conv=1,    # Local convolution width
                 expand=2,    # Block expansion factor
             ),
-            nn.LayerNorm(7)
         )
 
         # Initialize for loss function
