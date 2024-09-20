@@ -137,11 +137,11 @@ class SimpleModel(nn.Module):
                     nn.Linear(dim * 4, dim),
                 )
         self._cond_fns = nn.ModuleDict(condition_fns)
-        embed_dim += len(self._conditions) * dim
+        embed_dim += (len(self._conditions) - 1) * dim
 
         # Setup mamba layers for predict joint and angle
         self.joint_embedding_layer = nn.Sequential(
-            nn.Linear(embed_dim, self._horizon * 7),
+            nn.Linear(embed_dim, 7),
         )
 
         self.joint_mamba_layer = nn.Sequential(
@@ -155,16 +155,6 @@ class SimpleModel(nn.Module):
         )
 
         self.pose_mamba_layer = nn.Sequential(
-            nn.Linear(7*2, 7*2),
-            Mamba(
-                # This module uses roughly 3 * expand * d_model^2 parameters
-                d_model=7*2, # Model dimension d_model
-                d_state=64,  # SSM state expansion factor, typically 64 or 128
-                d_conv=1,    # Local convolution width
-                expand=2,    # Block expansion factor
-            ),
-            nn.LayerNorm(7*2),
-            nn.Linear(7*2, 7),
             Mamba(
                 # This module uses roughly 3 * expand * d_model^2 parameters
                 d_model=7, # Model dimension d_model
@@ -172,7 +162,6 @@ class SimpleModel(nn.Module):
                 d_conv=1,    # Local convolution width
                 expand=2,    # Block expansion factor
             ),
-            nn.LayerNorm(7)
         )
 
         # Initialize for loss function
@@ -250,11 +239,11 @@ class SimpleModel(nn.Module):
     ):
         cond = self.proc_cond(cond)
 
-        final_emb = []
-        # Ensure that the input requires gradients
+        start_emb = []
+        end_emb = []
+
         for cond_name in sorted(self._conditions):
             cond_var = kwargs[cond_name]
-
             if cond_name == "rgbs":
                 cond_var = cond_var.permute(0, 3, 1, 2)
 
@@ -267,16 +256,29 @@ class SimpleModel(nn.Module):
                 cond_emb = mask * cond_emb
             if force_dropout and allow_dropout:
                 cond_emb = 0 * cond_emb
-            final_emb.append(cond_emb)
-        
-        final_emb = torch.cat(final_emb, dim=-1)            
-        
-        joint_emb = self.joint_embedding_layer(final_emb)
-        joint_emb = joint_emb.reshape(final_emb.size(0), self._horizon, -1)
 
-        joint_feats = self.joint_mamba_layer(joint_emb)
-        pose_emb = torch.cat([joint_feats, joint_emb], dim=-1)
-        pose_emb = self.pose_mamba_layer(pose_emb)
+            if cond_name == "start":
+                start_emb.append(cond_emb)
+            
+            elif cond_name == "end":
+                end_emb.append(cond_emb)
+
+            if cond_name != "start" and cond_name != "end":
+                start_emb.append(cond_emb)
+                end_emb.append(cond_emb)
+        
+        start_joint = torch.cat(start_emb, dim=-1)
+        end_joint = torch.cat(end_emb, dim=-1)
+
+        start_joint = self.joint_embedding_layer(start_joint)
+        end_joint = self.joint_embedding_layer(end_joint)
+
+        batch_size = start_joint.size(0)
+        t = torch.linspace(0, 1, steps=self._horizon, device=start_joint.device).unsqueeze(0).unsqueeze(-1)  # Shape (1, self._horizon, 1)
+        interpolated_joint = start_joint.unsqueeze(1) * (1 - t) + end_joint.unsqueeze(1) * t  # Shape (batch_size, self._horizon, 7)
+
+        joint_feats = interpolated_joint + self.joint_mamba_layer(interpolated_joint)
+        pose_emb = joint_feats + self.pose_mamba_layer(joint_feats)
         
         return joint_feats, pose_emb
 
