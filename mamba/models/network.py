@@ -148,8 +148,8 @@ class SimpleModel(nn.Module):
             Mamba(
                 # This module uses roughly 3 * expand * d_model^2 parameters
                 d_model=7, # Model dimension d_model
-                d_state=64,  # SSM state expansion factor, typically 64 or 128
-                d_conv=1,    # Local convolution width
+                d_state=128,  # SSM state expansion factor, typically 64 or 128
+                d_conv=8,    # Local convolution width
                 expand=2,    # Block expansion factor
             ),
         )
@@ -158,8 +158,8 @@ class SimpleModel(nn.Module):
             Mamba(
                 # This module uses roughly 3 * expand * d_model^2 parameters
                 d_model=7, # Model dimension d_model
-                d_state=64,  # SSM state expansion factor, typically 64 or 128
-                d_conv=1,    # Local convolution width
+                d_state=128,  # SSM state expansion factor, typically 64 or 128
+                d_conv=8,    # Local convolution width
                 expand=2,    # Block expansion factor
             ),
         )
@@ -277,8 +277,8 @@ class SimpleModel(nn.Module):
         t = torch.linspace(0, 1, steps=self._horizon, device=start_joint.device).unsqueeze(0).unsqueeze(-1)  # Shape (1, self._horizon, 1)
         interpolated_joint = start_joint.unsqueeze(1) * (1 - t) + end_joint.unsqueeze(1) * t  # Shape (batch_size, self._horizon, 7)
 
-        joint_feats = interpolated_joint + self.joint_mamba_layer(interpolated_joint)
-        pose_emb = joint_feats + self.pose_mamba_layer(joint_feats)
+        joint_feats = self.joint_mamba_layer(interpolated_joint)
+        pose_emb = self.pose_mamba_layer((joint_feats + interpolated_joint)/2)
         
         return joint_feats, pose_emb
 
