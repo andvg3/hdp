@@ -86,7 +86,7 @@ class SimpleModel(nn.Module):
             and "end" in self._conditions
         )
         self._hard_conditions = hard_conditions
-        self._condition_dropout = 0.25 #FIXME
+        self._condition_dropout = 0.15 #FIXME
         self._mask_dist = Bernoulli(probs=1 - self._condition_dropout)
 
         robot_offset = torch.FloatTensor(robot_offset)
@@ -152,6 +152,10 @@ class SimpleModel(nn.Module):
                 d_conv=8,    # Local convolution width
                 expand=2,    # Block expansion factor
             ),
+        )
+
+        self.pose_embedding_layer = nn.Sequential(
+            nn.Linear(7, 7),
         )
 
         self.pose_mamba_layer = nn.Sequential(
@@ -278,7 +282,9 @@ class SimpleModel(nn.Module):
         interpolated_joint = start_joint.unsqueeze(1) * (1 - t) + end_joint.unsqueeze(1) * t  # Shape (batch_size, self._horizon, 7)
 
         joint_feats = self.joint_mamba_layer(interpolated_joint)
-        pose_emb = self.pose_mamba_layer((joint_feats + interpolated_joint)/2)
+
+        pose_emb = self.pose_embedding_layer(interpolated_joint)
+        pose_emb = self.pose_mamba_layer(pose_emb)
         
         return joint_feats, pose_emb
 
