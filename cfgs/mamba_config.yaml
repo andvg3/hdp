@@ -14,9 +14,9 @@ hidden_dim: 1024
 ## training
 n_epochs: 100000
 loss_type: l2
-n_train_steps: 1e8
+n_train_steps: 1e9
 batch_size: 32
-learning_rate: 5e-5
+learning_rate: 1e-4
 gradient_accumulate_every: 1
 ema_decay: 0.995
 log: false
