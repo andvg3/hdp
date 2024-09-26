@@ -22,7 +22,7 @@ coverage_weight: 1.0
 detach_reverse: false
 joint_weight: 1.0
 robot_offset: ${env.robot_offset}
-trans_loss_scale: 30.0
+trans_loss_scale: 100.0
 rot_loss_scale: 1.0
 joint_pred_pose_loss: true
 joint_loss_scale: 100.0
