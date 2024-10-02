@@ -10,3 +10,4 @@ eval_video/
 *.html
 *egg-info/
 data/
+snapshots/
