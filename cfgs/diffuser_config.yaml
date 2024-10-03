@@ -34,8 +34,8 @@ diffusion_var: multi
 action_mode: diff
 online_eval_start: 20000
 
-diff_optim: true
-diff_optim_steps: 200
+diff_optim: false
+diff_optim_steps: 0
 diff_lr: 10
 eval_only: false
 
