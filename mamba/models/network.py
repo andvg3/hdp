@@ -259,8 +259,6 @@ class SimpleModel(nn.Module):
         *args,
         **kwargs
     ):
-        cond = self.proc_cond(cond)
-
         start_emb = []
         end_emb = []
 
